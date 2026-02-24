@@ -1,177 +1,181 @@
-const { createCanvas, loadImage, registerFont } = require('canvas');
+const puppeteer = require('puppeteer-core');
 const path = require('path');
 const fs = require('fs');
 
 const OUTPUT_DIR = process.env.RENDER_OUTPUT_DIR || path.join(__dirname, '../uploads/rendered');
+if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+// macOS Chrome 路径
+const CHROME_PATH =
+  process.env.CHROME_PATH ||
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+
+let browserInstance = null;
+
+async function getBrowser() {
+  if (browserInstance && browserInstance.connected) return browserInstance;
+  browserInstance = await puppeteer.launch({
+    executablePath: CHROME_PATH,
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--font-render-hinting=none',
+    ],
+  });
+  browserInstance.on('disconnected', () => { browserInstance = null; });
+  return browserInstance;
 }
 
-// cover 尺寸 1080x1440
-const COVER_W = 1080;
-const COVER_H = 1440;
-const BG_COLOR = '#1E2028';
-const ACCENT_COLOR = '#06FFA5';
-
-function fitText(ctx, text, maxWidth, maxFontSize, minFontSize = 10, fontWeight = '900', fontFamily = 'sans-serif') {
-  let size = maxFontSize;
-  while (size >= minFontSize) {
-    ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
-    const metrics = ctx.measureText(text);
-    if (metrics.width <= maxWidth) break;
-    size--;
+async function screenshotHTML(html, width, height) {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    // 等待字体加载（Google Fonts）
+    await page.evaluate(() => document.fonts.ready);
+    const buffer = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width, height } });
+    return buffer;
+  } finally {
+    await page.close();
   }
-  return size;
-}
-
-function fitTextMultiline(ctx, text, maxWidth, maxHeight, maxFontSize, minFontSize = 10, fontWeight = '900', fontFamily = 'sans-serif') {
-  let size = maxFontSize;
-  while (size >= minFontSize) {
-    ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
-    const lines = wrapText(ctx, text, maxWidth, size);
-    const totalH = lines.length * size * 1.2;
-    if (totalH <= maxHeight) break;
-    size--;
-  }
-  return size;
-}
-
-function wrapText(ctx, text, maxWidth) {
-  const words = text.split('');
-  const lines = [];
-  let current = '';
-  for (const ch of words) {
-    const test = current + ch;
-    if (ctx.measureText(test).width > maxWidth && current.length > 0) {
-      lines.push(current);
-      current = ch;
-    } else {
-      current = test;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
 }
 
 async function renderCover({ cover_word, cover_title, cover_description, cover_emoji }, sessionId) {
-  const canvas = createCanvas(COVER_W, COVER_H);
-  const ctx = canvas.getContext('2d');
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 1080px; height: 1440px; overflow: hidden; background: #1E2028; }
 
-  // 背景
-  ctx.fillStyle = BG_COLOR;
-  ctx.fillRect(0, 0, COVER_W, COVER_H);
+    .cover { position: relative; width: 1080px; height: 1440px; background: #1E2028; overflow: hidden; }
 
-  // cover_word (left=90, top=140, width=700, single line)
-  {
-    const fontSize = fitText(ctx, cover_word, 700, 150, 10, '900');
-    ctx.font = `900 ${fontSize}px sans-serif`;
-    ctx.fillStyle = '#8E8E8E';
-    ctx.textBaseline = 'top';
-    ctx.fillText(cover_word, 90, 140);
-  }
+    .cover_word {
+      position: absolute; width: 700px; left: 90px; top: 140px;
+      font-family: 'Noto Sans SC', sans-serif; font-weight: 900; color: #8E8E8E;
+      white-space: nowrap; transform-origin: left center;
+    }
+    .cover_title {
+      position: absolute; width: 900px; height: 600px; left: 90px; top: 330px;
+      font-family: 'Noto Sans SC', sans-serif; font-weight: 900; color: #06FFA5;
+      display: flex; align-items: center; justify-content: flex-start; overflow: hidden;
+    }
+    .cover_title span { display: block; width: 100%; line-height: 1.1; }
+    .cover_description {
+      position: absolute; width: 900px; height: 200px; left: 90px; top: 951px;
+      font-family: 'Noto Sans SC', sans-serif; font-weight: 400; color: #FFFFFF;
+      display: flex; align-items: center; justify-content: flex-start; overflow: hidden;
+    }
+    .cover_description span { display: block; width: 100%; line-height: 1.2; }
+    .cover_emoji {
+      position: absolute; width: 300px; height: 300px; left: 690px; top: 1097px;
+      font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+      font-size: 240px; line-height: 300px; opacity: 0.5;
+      display: flex; align-items: center; justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="cover_word" id="coverWord">${escHtml(cover_word)}</div>
+    <div class="cover_title" id="coverTitle"><span>${escHtml(cover_title)}</span></div>
+    <div class="cover_description" id="coverDesc"><span>${escHtml(cover_description)}</span></div>
+    <div class="cover_emoji">${escHtml(cover_emoji)}</div>
+  </div>
+  <script>
+    function fitText(el, maxW, maxH, maxSize) {
+      let size = maxSize;
+      if (!maxH) {
+        el.style.fontSize = size + 'px';
+        while (el.scrollWidth > maxW && size > 10) { size--; el.style.fontSize = size + 'px'; }
+      } else {
+        const span = el.querySelector('span');
+        span.style.fontSize = size + 'px';
+        while ((span.scrollWidth > maxW || span.scrollHeight > maxH) && size > 10) {
+          size--; span.style.fontSize = size + 'px';
+        }
+      }
+    }
+    fitText(document.getElementById('coverWord'), 700, null, 150);
+    fitText(document.getElementById('coverTitle'), 900, 600, 150);
+    fitText(document.getElementById('coverDesc'), 900, 200, 80);
+  </script>
+</body>
+</html>`;
 
-  // cover_title (left=90, top=330, width=900, height=600)
-  {
-    const fontSize = fitTextMultiline(ctx, cover_title, 900, 600, 150, 10, '900');
-    ctx.font = `900 ${fontSize}px sans-serif`;
-    ctx.fillStyle = ACCENT_COLOR;
-    ctx.textBaseline = 'top';
-    const lines = wrapText(ctx, cover_title, 900);
-    const lineH = fontSize * 1.1;
-    const totalH = lines.length * lineH;
-    const startY = 330 + (600 - totalH) / 2;
-    lines.forEach((line, i) => {
-      ctx.fillText(line, 90, startY + i * lineH);
-    });
-  }
-
-  // cover_description (left=90, top=951, width=900, height=200)
-  {
-    const fontSize = fitTextMultiline(ctx, cover_description, 900, 200, 80, 10, '400');
-    ctx.font = `400 ${fontSize}px sans-serif`;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textBaseline = 'top';
-    const lines = wrapText(ctx, cover_description, 900);
-    const lineH = fontSize * 1.2;
-    const totalH = lines.length * lineH;
-    const startY = 951 + (200 - totalH) / 2;
-    lines.forEach((line, i) => {
-      ctx.fillText(line, 90, startY + i * lineH);
-    });
-  }
-
-  // cover_emoji (left=690, top=1097, size=300, opacity=0.5)
-  {
-    ctx.globalAlpha = 0.5;
-    ctx.font = '250px serif';
-    ctx.textBaseline = 'top';
-    ctx.fillText(cover_emoji, 700, 1100);
-    ctx.globalAlpha = 1.0;
-  }
-
+  const buffer = await screenshotHTML(html, 1080, 1440);
   const outPath = path.join(OUTPUT_DIR, `${sessionId}_cover.png`);
-  const buffer = canvas.toBuffer('image/png');
   fs.writeFileSync(outPath, buffer);
   return outPath;
 }
 
 async function renderDetail(imagePath, sessionId, index) {
-  const DETAIL_W = 1080;
-  const DETAIL_H = 1440;
-  const PADDING = 80;
+  // 把图片转为 base64 内嵌（避免 file:// 协议跨域问题）
+  const imgBase64 = fs.readFileSync(imagePath).toString('base64');
+  const ext = path.extname(imagePath).slice(1).replace('jpg', 'jpeg');
+  const imgSrc = `data:image/${ext};base64,${imgBase64}`;
 
-  const canvas = createCanvas(DETAIL_W, DETAIL_H);
-  const ctx = canvas.getContext('2d');
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 1080px; height: 1440px; overflow: hidden; background: #1E2028;
+           display: flex; align-items: center; justify-content: center; }
+    .image-container {
+      position: relative;
+      box-shadow: 20px 20px 0px #06FFA5;
+      border-radius: 50px;
+      overflow: hidden;
+    }
+    .image-container img {
+      display: block; width: 100%; height: 100%;
+      object-fit: contain; border-radius: 50px;
+    }
+  </style>
+</head>
+<body>
+  <div class="image-container" id="imgContainer">
+    <img src="${imgSrc}" id="img" />
+  </div>
+  <script>
+    const img = document.getElementById('img');
+    const container = document.getElementById('imgContainer');
+    function adjust() {
+      const maxW = 1080 - 80 * 2;
+      const maxH = 1440 - 80 * 2;
+      const iw = img.naturalWidth || 920;
+      const ih = img.naturalHeight || 1280;
+      const scale = Math.min(maxW / iw, maxH / ih, 1);
+      container.style.width = (iw * scale) + 'px';
+      container.style.height = (ih * scale) + 'px';
+    }
+    if (img.complete) adjust(); else img.onload = adjust;
+  </script>
+</body>
+</html>`;
 
-  // 背景
-  ctx.fillStyle = BG_COLOR;
-  ctx.fillRect(0, 0, DETAIL_W, DETAIL_H);
-
-  // 加载图片
-  const img = await loadImage(imagePath);
-  const imgW = img.width;
-  const imgH = img.height;
-
-  const maxW = DETAIL_W - PADDING * 2;
-  const maxH = DETAIL_H - PADDING * 2;
-
-  const scaleX = maxW / imgW;
-  const scaleY = maxH / imgH;
-  const scale = Math.min(scaleX, scaleY, 1);
-
-  const finalW = imgW * scale;
-  const finalH = imgH * scale;
-  const x = (DETAIL_W - finalW) / 2;
-  const y = (DETAIL_H - finalH) / 2;
-
-  // 阴影/装饰
-  ctx.shadowColor = ACCENT_COLOR;
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 20;
-  ctx.shadowOffsetY = 20;
-
-  // 圆角裁剪
-  const radius = 50;
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + finalW - radius, y);
-  ctx.arcTo(x + finalW, y, x + finalW, y + radius, radius);
-  ctx.lineTo(x + finalW, y + finalH - radius);
-  ctx.arcTo(x + finalW, y + finalH, x + finalW - radius, y + finalH, radius);
-  ctx.lineTo(x + radius, y + finalH);
-  ctx.arcTo(x, y + finalH, x, y + finalH - radius, radius);
-  ctx.lineTo(x, y + radius);
-  ctx.arcTo(x, y, x + radius, y, radius);
-  ctx.closePath();
-  ctx.clip();
-
-  ctx.drawImage(img, x, y, finalW, finalH);
-
+  const buffer = await screenshotHTML(html, 1080, 1440);
   const outPath = path.join(OUTPUT_DIR, `${sessionId}_detail_${index}.png`);
-  const buffer = canvas.toBuffer('image/png');
   fs.writeFileSync(outPath, buffer);
   return outPath;
 }
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// 进程退出时关闭浏览器
+process.on('exit', () => { if (browserInstance) browserInstance.close(); });
 
 module.exports = { renderCover, renderDetail, OUTPUT_DIR };

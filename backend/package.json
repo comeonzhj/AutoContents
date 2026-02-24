@@ -23,6 +23,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "puppeteer-core": "^24.37.5",
     "rss-parser": "^3.13.0",
     "sharp": "^0.34.5",
     "uuid": "^13.0.0"

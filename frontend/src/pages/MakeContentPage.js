@@ -4,7 +4,10 @@ import { contentAPI } from '../services/api';
 import { useToast } from '../components/Toast';
 import './MakeContentPage.css';
 
-const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:3710';
+// 生产模式用空串（同域），开发模式通过 package.json proxy 代理到后端
+const API_BASE = process.env.NODE_ENV === 'production'
+  ? (process.env.REACT_APP_API_URL?.replace('/api', '') || '')
+  : '';
 
 // 图片上传区域
 function ImageUploader({ images, onImagesChange }) {
@@ -15,15 +18,38 @@ function ImageUploader({ images, onImagesChange }) {
     const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
     if (imageFiles.length === 0) return;
 
+    // 先生成本地预览立即显示，用临时 id 占位
+    const previews = imageFiles.map((f) => ({
+      filename: `preview-${Date.now()}-${f.name}`,
+      url: URL.createObjectURL(f),
+      originalname: f.name,
+      uploading: true,
+    }));
+    onImagesChange((prev) => [...prev, ...previews]);
+
+    // 异步上传
     const formData = new FormData();
     imageFiles.forEach((f) => formData.append('images', f));
-
     try {
       const resp = await contentAPI.uploadImages(formData);
       if (resp.data.success) {
-        onImagesChange((prev) => [...prev, ...resp.data.data]);
+        const uploaded = resp.data.data;
+        // 用服务端返回的数据替换占位项
+        onImagesChange((prev) => {
+          let result = [...prev];
+          previews.forEach((p, i) => {
+            const idx = result.findIndex((r) => r.filename === p.filename);
+            if (idx !== -1) result[idx] = uploaded[i];
+          });
+          return result;
+        });
+        // 释放本地 objectURL
+        previews.forEach((p) => URL.revokeObjectURL(p.url));
       }
     } catch (e) {
+      // 上传失败移除占位项
+      onImagesChange((prev) => prev.filter((r) => !previews.some((p) => p.filename === r.filename)));
+      previews.forEach((p) => URL.revokeObjectURL(p.url));
       console.error('上传失败', e);
     }
   }, [onImagesChange]);
@@ -75,7 +101,11 @@ function ImageUploader({ images, onImagesChange }) {
         <div className="image-preview-list">
           {images.map((img) => (
             <div key={img.filename} className="image-preview-item">
-              <img src={`${API_BASE}${img.url}`} alt={img.originalname} />
+              <img
+                src={img.uploading ? img.url : `${API_BASE}${img.url}`}
+                alt={img.originalname}
+                style={img.uploading ? { opacity: 0.5 } : {}}
+              />
               <button className="remove-image-btn" onClick={(e) => { e.stopPropagation(); removeImage(img.filename); }}>
                 ✕
               </button>

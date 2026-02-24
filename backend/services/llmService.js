@@ -12,8 +12,17 @@ async function callLLM(type, userContent, schema = null) {
   const base = (baseUrl || 'https://api.openai.com').replace(/\/v1\/?$/, '').replace(/\/$/, '');
   const url = `${base}/v1/chat/completions`;
 
+  // 需要结构化输出时，将 schema 附加到系统提示词，并要求输出 JSON
+  let systemPrompt = sysPrompt;
+  if (schema) {
+    const fieldDescs = Object.entries(schema.properties)
+      .map(([k, v]) => `- ${k}：${v.description}`)
+      .join('\n');
+    systemPrompt = `${sysPrompt}\n\n请严格以 JSON 格式输出，包含以下字段：\n${fieldDescs}\n\n只输出 JSON，不要有任何其他文字。`;
+  }
+
   const messages = [
-    { role: 'system', content: sysPrompt },
+    { role: 'system', content: systemPrompt },
     { role: 'user', content: userContent },
   ];
 
@@ -23,15 +32,9 @@ async function callLLM(type, userContent, schema = null) {
     temperature: 0.7,
   };
 
+  // 使用兼容性更好的 json_object 格式（DeepSeek / OpenAI 均支持）
   if (schema) {
-    body.response_format = {
-      type: 'json_schema',
-      json_schema: {
-        name: 'output',
-        strict: true,
-        schema,
-      },
-    };
+    body.response_format = { type: 'json_object' };
   }
 
   const resp = await axios.post(url, body, {
@@ -45,7 +48,9 @@ async function callLLM(type, userContent, schema = null) {
   const content = resp.data.choices[0].message.content;
   if (schema) {
     try {
-      return JSON.parse(content);
+      // 去掉可能包裹的 markdown 代码块
+      const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      return JSON.parse(cleaned);
     } catch {
       return content;
     }
