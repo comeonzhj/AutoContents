@@ -52,3 +52,29 @@
   padding-top: 20px;
   border-top: 1px solid var(--border);
 }
+
+.scope-radio-group {
+  display: flex;
+  gap: 20px;
+  margin-top: 4px;
+}
+
+.scope-radio {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.scope-radio input[type="radio"] {
+  width: auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.scope-radio:has(input:checked) span {
+  color: var(--accent);
+  font-weight: 500;
+}

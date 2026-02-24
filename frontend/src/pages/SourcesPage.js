@@ -232,17 +232,18 @@ export default function SourcesPage() {
   const [loading, setLoading] = useState(true);
   const toast = useToast();
 
+  const toastError = toast.error;
   const loadSources = useCallback(async () => {
     setLoading(true);
     try {
       const resp = await sourcesAPI.list();
       if (resp.data.success) setSources(resp.data.data);
     } catch (e) {
-      toast.error('加载信源失败');
+      toastError('加载信源失败');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toastError]);
 
   useEffect(() => {
     loadSources();

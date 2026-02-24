@@ -1,7 +1,7 @@
 const axios = require('axios');
 const Parser = require('rss-parser');
 const db = require('../db/database');
-const { getBlacklist, getAllowlist } = require('./configService');
+const { getBlacklist, getAllowlist, getAllowlistScope } = require('./configService');
 const { translate } = require('./llmService');
 
 const parser = new Parser({
@@ -58,6 +58,7 @@ async function fetchSource(source) {
 async function processAndSaveItems(source, items) {
   const blacklist = getBlacklist();
   const allowlist = getAllowlist();
+  const allowlistScope = getAllowlistScope();
   const insertStmt = db.prepare(`
     INSERT OR IGNORE INTO news 
     (source_id, guid, title, description, link, pub_date)
@@ -85,7 +86,8 @@ async function processAndSaveItems(source, items) {
     }
 
     // 正向关键词筛选（列表为空时放行全部）
-    if (!passesAllowlist(title + ' ' + description, allowlist)) {
+    const allowlistText = allowlistScope === 'title' ? title : title + ' ' + description;
+    if (!passesAllowlist(allowlistText, allowlist)) {
       continue;
     }
 

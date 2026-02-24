@@ -8,7 +8,9 @@ async function callLLM(type, userContent, schema = null) {
     throw new Error(`LLM 配置不完整：${type} 模型未配置 API Key 或模型名称`);
   }
 
-  const url = `${baseUrl || 'https://api.openai.com'}/v1/chat/completions`;
+  // 去掉末尾的 /v1 或 / 避免重复拼接
+  const base = (baseUrl || 'https://api.openai.com').replace(/\/v1\/?$/, '').replace(/\/$/, '');
+  const url = `${base}/v1/chat/completions`;
 
   const messages = [
     { role: 'system', content: sysPrompt },

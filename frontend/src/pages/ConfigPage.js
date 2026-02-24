@@ -298,9 +298,34 @@ export default function ConfigPage() {
           <div className="config-section">
             <h3 className="section-title">正向筛选关键词</h3>
             <p className="section-desc">
-              只有资讯标题或内容中包含以下任意一个关键词，才会显示在列表中。<br />
-              <strong>留空则不启用正向筛选，所有资讯均可通过。</strong>关键词匹配不区分大小写。
+              只有包含以下任意一个关键词的资讯才会进入列表。
+              <strong>留空则不启用，所有资讯均可通过。</strong>关键词匹配不区分大小写。
             </p>
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label className="form-label">匹配范围</label>
+              <div className="scope-radio-group">
+                <label className="scope-radio">
+                  <input
+                    type="radio"
+                    name="allowlist_scope"
+                    value="title"
+                    checked={(config.allowlist_scope || 'title') === 'title'}
+                    onChange={() => handleChange('allowlist_scope', 'title')}
+                  />
+                  <span>仅标题（推荐，精准度高）</span>
+                </label>
+                <label className="scope-radio">
+                  <input
+                    type="radio"
+                    name="allowlist_scope"
+                    value="all"
+                    checked={config.allowlist_scope === 'all'}
+                    onChange={() => handleChange('allowlist_scope', 'all')}
+                  />
+                  <span>标题 + 正文（召回多但易误匹配）</span>
+                </label>
+              </div>
+            </div>
             <textarea
               value={allowlistInput}
               onChange={(e) => setAllowlistInput(e.target.value)}

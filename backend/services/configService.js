@@ -38,6 +38,9 @@ const DEFAULT_CONFIG = {
 
   // 正向筛选关键词（为空则不过滤）
   allowlist_keywords: '[]',
+
+  // 正向筛选范围：title（仅标题）或 all（标题+描述）
+  allowlist_scope: 'title',
 };
 
 function getConfig(key) {
@@ -89,6 +92,11 @@ function getAllowlist() {
   }
 }
 
+// 获取正向筛选范围
+function getAllowlistScope() {
+  return getConfig('allowlist_scope') || 'title';
+}
+
 // 获取 LLM 配置（translate/edit/create）
 function getLLMConfig(type) {
   const cfg = getAllConfig();
@@ -99,4 +107,4 @@ function getLLMConfig(type) {
   return { model, baseUrl, apiKey, sysPrompt };
 }
 
-module.exports = { getConfig, setConfig, getAllConfig, setMultiConfig, getBlacklist, getAllowlist, getLLMConfig };
+module.exports = { getConfig, setConfig, getAllConfig, setMultiConfig, getBlacklist, getAllowlist, getAllowlistScope, getLLMConfig };

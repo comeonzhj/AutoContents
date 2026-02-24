@@ -122,6 +122,7 @@ export default function HomePage() {
   const toast = useToast();
   const navigate = useNavigate();
 
+  const toastError = toast.error;
   const loadNews = useCallback(async () => {
     setLoading(true);
     try {
@@ -130,11 +131,11 @@ export default function HomePage() {
         setGroupedNews(resp.data.data);
       }
     } catch (e) {
-      toast.error('加载资讯失败');
+      toastError('加载资讯失败');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toastError]);
 
   useEffect(() => {
     loadNews();
