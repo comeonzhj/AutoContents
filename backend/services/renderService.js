@@ -127,7 +127,8 @@ async function renderCover({ cover_word, cover_title, cover_description, cover_e
   return outPath;
 }
 
-async function renderDetail(imagePath, sessionId, index) {
+async function renderDetail(imagePath, sessionId, index, shadowColor) {
+  const color = shadowColor || '#06FFA5';
   // 把图片转为 base64 内嵌（避免 file:// 协议跨域问题）
   const imgBase64 = fs.readFileSync(imagePath).toString('base64');
   const ext = path.extname(imagePath).slice(1).replace('jpg', 'jpeg');
@@ -143,7 +144,7 @@ async function renderDetail(imagePath, sessionId, index) {
            display: flex; align-items: center; justify-content: center; }
     .image-container {
       position: relative;
-      box-shadow: 20px 20px 0px #06FFA5;
+      box-shadow: 20px 20px 0px ${escHtml(color)};
       border-radius: 50px;
       overflow: hidden;
     }

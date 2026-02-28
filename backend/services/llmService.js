@@ -1,6 +1,38 @@
 const axios = require('axios');
 const { getLLMConfig } = require('./configService');
 
+// 直接用传入的配置对象调用 LLM（用于 AITopics/AITools 复用 edit 模型但换提示词）
+async function callLLMWithOverride({ model, baseUrl, apiKey, sysPrompt }, userContent, schema = null) {
+  if (!apiKey || !model) throw new Error('LLM 配置不完整：API Key 或模型名称未配置');
+
+  const base = (baseUrl || 'https://api.openai.com').replace(/\/v1\/?$/, '').replace(/\/$/, '');
+  const url = `${base}/v1/chat/completions`;
+
+  let systemPrompt = sysPrompt;
+  if (schema) {
+    const fieldDescs = Object.entries(schema.properties)
+      .map(([k, v]) => `- ${k}：${v.description}`)
+      .join('\n');
+    systemPrompt = `${sysPrompt}\n\n请严格以 JSON 格式输出，包含以下字段：\n${fieldDescs}\n\n只输出 JSON，不要有任何其他文字。`;
+  }
+
+  const body = { model, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }], temperature: 0.7 };
+  if (schema) body.response_format = { type: 'json_object' };
+
+  const resp = await axios.post(url, body, {
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    timeout: 60000,
+  });
+
+  const content = resp.data.choices[0].message.content;
+  if (schema) {
+    try {
+      return JSON.parse(content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim());
+    } catch { return content; }
+  }
+  return content;
+}
+
 async function callLLM(type, userContent, schema = null) {
   const { model, baseUrl, apiKey, sysPrompt } = getLLMConfig(type);
 
@@ -85,9 +117,10 @@ async function formatNewsForAINews(title, description) {
 
 // 格式化新闻（AITopics：引导讨论型）
 async function formatNewsForAITopics(title, description) {
-  const prompt = `请将以下新闻内容润色为适合引导读者参与讨论的资讯推文，要有观点、有问题引导：
-标题：${title}
-内容：${description}`;
+  const { model, baseUrl, apiKey } = getLLMConfig('edit');
+  const { sysPrompt } = getLLMConfig('aitopics');
+
+  const prompt = `标题：${title}\n内容：${description}`;
 
   const schema = {
     type: 'object',
@@ -99,14 +132,16 @@ async function formatNewsForAITopics(title, description) {
     additionalProperties: false,
   };
 
-  return callLLM('edit', prompt, schema);
+  // 复用 edit 模型，但替换系统提示词
+  return callLLMWithOverride({ model, baseUrl, apiKey, sysPrompt }, prompt, schema);
 }
 
 // 格式化新闻（AITools：工具推荐型）
 async function formatNewsForAITools(title, description) {
-  const prompt = `请将以下内容润色为工具推荐性资讯推文，突出工具的功能亮点和使用场景：
-标题：${title}
-内容：${description}`;
+  const { model, baseUrl, apiKey } = getLLMConfig('edit');
+  const { sysPrompt } = getLLMConfig('aitools');
+
+  const prompt = `标题：${title}\n内容：${description}`;
 
   const schema = {
     type: 'object',
@@ -118,7 +153,7 @@ async function formatNewsForAITools(title, description) {
     additionalProperties: false,
   };
 
-  return callLLM('edit', prompt, schema);
+  return callLLMWithOverride({ model, baseUrl, apiKey, sysPrompt }, prompt, schema);
 }
 
 // 创作内容（MakeContent）

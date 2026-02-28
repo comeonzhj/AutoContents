@@ -173,56 +173,6 @@
   align-items: center;
 }
 
-/* 推送下拉 */
-.push-dropdown-wrap {
-  position: relative;
-}
-
-.push-btn {
-  white-space: nowrap;
-}
-
-.push-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-  z-index: 100;
-  min-width: 160px;
-  overflow: hidden;
-}
-
-.push-dropdown-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 10px 14px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--transition);
-}
-
-.push-dropdown-item:hover {
-  background: var(--surface2);
-}
-
-.push-item-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.push-item-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
 /* 保存按钮 */
 .btn-warning-ghost {
   background: transparent;

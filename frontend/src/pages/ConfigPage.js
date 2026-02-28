@@ -176,7 +176,31 @@ export default function ConfigPage() {
       {activeTab === 'llm' && (
         <div className="config-content">
           <LLMSection title="翻译模型" prefix="translate" config={config} onChange={handleChange} />
-          <LLMSection title="资讯编辑模型（AINews）" prefix="edit" config={config} onChange={handleChange} />
+          <LLMSection title="资讯编辑模型（AINews / AITopics / AITools 共用）" prefix="edit" config={config} onChange={handleChange} />
+          <div className="config-section">
+            <h3 className="section-title">推送风格提示词</h3>
+            <p className="section-desc">AITopics 和 AITools 复用上方的编辑模型配置，可在此单独调整各自的系统提示词风格。</p>
+            <div className="config-grid">
+              <div className="form-group full-width">
+                <label className="form-label">AITopics 系统提示词</label>
+                <textarea
+                  value={config.aitopics_sys_prompt || ''}
+                  onChange={(e) => handleChange('aitopics_sys_prompt', e.target.value)}
+                  placeholder="留空使用系统默认：引导话题讨论风格"
+                  rows={3}
+                />
+              </div>
+              <div className="form-group full-width">
+                <label className="form-label">AITools 系统提示词</label>
+                <textarea
+                  value={config.aitools_sys_prompt || ''}
+                  onChange={(e) => handleChange('aitools_sys_prompt', e.target.value)}
+                  placeholder="留空使用系统默认：工具推荐风格"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
           <LLMSection title="内容创作模型（MakeContent）" prefix="create" config={config} onChange={handleChange} />
         </div>
       )}

@@ -73,7 +73,7 @@ router.post('/render', async (req, res) => {
     for (let i = 0; i < images.length; i++) {
       const imgPath = path.join(UPLOAD_DIR, images[i]);
       if (fs.existsSync(imgPath)) {
-        const dp = await renderDetail(imgPath, sessionId, i);
+        const dp = await renderDetail(imgPath, sessionId, i, cover_title_color);
         detailPaths.push(dp);
       }
     }

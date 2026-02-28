@@ -1,57 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { newsAPI } from '../services/api';
 import { useToast } from '../components/Toast';
 import './HomePage.css';
 
-// 推送下拉菜单
-function PushDropdown({ onPush, loading }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const options = [
-    { key: 'ainews', label: 'AINews', desc: '资讯速报 #AINews' },
-    { key: 'aitopics', label: 'AITopics', desc: '话题讨论 #AITopic' },
-    { key: 'aitools', label: 'AITools', desc: '工具推荐 #AITools' },
-  ];
-
-  return (
-    <div className="push-dropdown-wrap" ref={ref}>
-      <button
-        className="btn btn-ghost btn-sm push-btn"
-        onClick={() => setOpen((v) => !v)}
-        disabled={loading}
-        title="推送到微信并保存到飞书"
-      >
-        {loading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : null}
-        推送 ▾
-      </button>
-      {open && (
-        <div className="push-dropdown-menu">
-          {options.map((opt) => (
-            <button
-              key={opt.key}
-              className="push-dropdown-item"
-              onClick={() => { setOpen(false); onPush(opt.key); }}
-            >
-              <span className="push-item-label">{opt.label}</span>
-              <span className="push-item-desc">{opt.desc}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function NewsCard({ item, onHide, onPushed, onSaved, onMakeContent }) {
-  const [pushLoading, setPushLoading] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false); // false | 'ainews' | 'aitopics' | 'aitools'
   const [saveLoading, setSaveLoading] = useState(false);
   const toast = useToast();
 
@@ -59,7 +13,8 @@ function NewsCard({ item, onHide, onPushed, onSaved, onMakeContent }) {
   const displayDesc = item.translated_description || item.description || '';
 
   const handlePush = async (type) => {
-    setPushLoading(true);
+    if (pushLoading) return;
+    setPushLoading(type);
     try {
       const apiMap = { ainews: newsAPI.ainews, aitopics: newsAPI.aitopics, aitools: newsAPI.aitools };
       const resp = await apiMap[type](item.id);
@@ -114,7 +69,33 @@ function NewsCard({ item, onHide, onPushed, onSaved, onMakeContent }) {
             原文
           </a>
         )}
-        <PushDropdown onPush={handlePush} loading={pushLoading} />
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => handlePush('ainews')}
+          disabled={pushLoading}
+          title="资讯速报 #AINews"
+        >
+          {pushLoading === 'ainews' ? <span className="spinner" style={{ width: 11, height: 11 }} /> : null}
+          AINews
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => handlePush('aitopics')}
+          disabled={pushLoading}
+          title="话题讨论 #AITopic"
+        >
+          {pushLoading === 'aitopics' ? <span className="spinner" style={{ width: 11, height: 11 }} /> : null}
+          AITopics
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => handlePush('aitools')}
+          disabled={pushLoading}
+          title="工具推荐 #AITools"
+        >
+          {pushLoading === 'aitools' ? <span className="spinner" style={{ width: 11, height: 11 }} /> : null}
+          AITools
+        </button>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => onMakeContent(item)}

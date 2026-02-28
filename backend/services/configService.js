@@ -7,11 +7,13 @@ const DEFAULT_CONFIG = {
   translate_api_key: '',
   translate_sys_prompt: '你是一个专业翻译，请将以下内容翻译为简体中文，保持原意，输出纯文本，不要加任何解释。',
 
-  // 编辑模型（AINews 使用）
+  // 编辑模型（AINews / AITopics / AITools 共用）
   edit_model: '',
   edit_base_url: '',
   edit_api_key: '',
   edit_sys_prompt: '你是一个专业的新闻编辑，请将提供的新闻标题和内容进行结构化提炼，输出简短精炼的资讯标题和新闻概要。',
+  aitopics_sys_prompt: '你是一个擅长引导话题讨论的内容编辑，请将新闻改写为能激发读者思考和参与讨论的资讯推文，要有鲜明观点，结尾提出引导性问题。',
+  aitools_sys_prompt: '你是一个 AI 工具评测达人，请将新闻改写为工具推荐性资讯，突出工具的核心功能、使用场景和亮点，语气积极热情，让读者有想尝试的冲动。',
 
   // 创作模型（MakeContent 使用）
   create_model: '',
