@@ -1,6 +1,39 @@
 const puppeteer = require('puppeteer-core');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+
+// Apple Color Emoji 字体：macOS 直接使用系统字体，其他平台嵌入 base64 @font-face
+// fonts/ 目录与 backend/ 同级（项目根目录下）
+const FONTS_DIR = path.join(__dirname, '../../fonts');
+function getAppleEmojiBase64() {
+  if (os.platform() === 'darwin') return null; // macOS 用系统原生字体，无需嵌入
+
+  const candidates = [
+    path.join(FONTS_DIR, 'AppleColorEmoji-Linux.ttf'),
+    path.join(FONTS_DIR, 'AppleColorEmoji-Windows.ttf'),
+  ];
+  const fontPath = candidates.find((p) => fs.existsSync(p));
+  if (!fontPath) return null;
+
+  return fs.readFileSync(fontPath).toString('base64');
+}
+
+// 在模块加载时读取一次，避免每次渲染都读磁盘
+const EMOJI_FONT_B64 = getAppleEmojiBase64();
+
+// 生成注入到 HTML <style> 里的 @font-face 声明
+function getEmojiFontFaceCSS() {
+  if (!EMOJI_FONT_B64) return ''; // macOS 不需要
+  return `
+    @font-face {
+      font-family: 'Apple Color Emoji';
+      src: url('data:font/truetype;base64,${EMOJI_FONT_B64}') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  `;
+}
 
 const OUTPUT_DIR = process.env.RENDER_OUTPUT_DIR || path.join(__dirname, '../uploads/rendered');
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -63,6 +96,7 @@ async function renderCover({ cover_word, cover_title, cover_description, cover_e
   <meta charset="UTF-8">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap');
+    ${getEmojiFontFaceCSS()}
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { width: 1080px; height: 1440px; overflow: hidden; background: #1E2028; }
 
@@ -87,7 +121,7 @@ async function renderCover({ cover_word, cover_title, cover_description, cover_e
     .cover_description span { display: block; width: 100%; line-height: 1.2; }
     .cover_emoji {
       position: absolute; width: 300px; height: 300px; left: 690px; top: 1097px;
-      font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+      font-family: 'Apple Color Emoji', sans-serif;
       font-size: 240px; line-height: 300px; opacity: 0.5;
       display: flex; align-items: center; justify-content: center;
     }
