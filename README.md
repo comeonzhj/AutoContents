@@ -34,7 +34,7 @@
 ### 前置要求
 
 - Node.js 20+
-- 本地运行中的 RSSHub（默认 `http://localhost:1200`）
+- [非必须]本地运行中的 [RSSHub](https://github.com/DIYgod/RSSHub)（默认 `http://localhost:1200`）
 - macOS 需安装 Google Chrome（渲染图片用）
 
 ### 启动
