@@ -245,20 +245,25 @@ async function getUploadPermit(cookie, a1) {
     throw new Error(`获取上传凭证失败: ${JSON.stringify(resp.data)}`);
   }
 
+  // 接口可能返回多个 permit（不同 qos/uploadAddr），取第一个即可
   const permit = resp.data.data.uploadTempPermits[0];
-  return { fileId: permit.fileIds[0], token: permit.token };
+  // uploadAddr 字段决定实际上传域名（如 ros-upload-d4.xhscdn.com 或 ros-upload.xiaohongshu.com）
+  const uploadAddr = permit.uploadAddr || 'ros-upload.xiaohongshu.com';
+  return { fileId: permit.fileIds[0], token: permit.token, uploadAddr };
 }
 
 /**
  * 上传图片文件到 COS
  * 对应 Python: upload_file(file_id, token, file_path)
  */
-async function uploadFileToCos(fileId, token, filePath) {
+async function uploadFileToCos(fileId, token, filePath, uploadAddr) {
   const ext = path.extname(filePath).slice(1).toLowerCase();
   const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext || 'jpeg'}`;
 
   const fileBuffer = fs.readFileSync(filePath);
-  const url = `${UPLOAD_HOST}/${fileId}`;
+  // 使用 permit 返回的 uploadAddr（可能是 ros-upload-d4.xhscdn.com 等）
+  const host = uploadAddr || 'ros-upload.xiaohongshu.com';
+  const url = `https://${host}/${fileId}`;
 
   const resp = await axios.put(url, fileBuffer, {
     headers: {
@@ -305,8 +310,8 @@ async function publishNote({ title, desc, imagePaths, isPrivate = false }) {
   for (const imgPath of imagePaths) {
     if (!fs.existsSync(imgPath)) throw new Error(`图片文件不存在: ${imgPath}`);
 
-    const { fileId, token } = await getUploadPermit(cookie, a1);
-    await uploadFileToCos(fileId, token, imgPath);
+    const { fileId, token, uploadAddr } = await getUploadPermit(cookie, a1);
+    await uploadFileToCos(fileId, token, imgPath, uploadAddr);
 
     images.push({
       file_id: fileId,
@@ -346,33 +351,33 @@ async function publishNote({ title, desc, imagePaths, isPrivate = false }) {
 
   const sign = buildXhsSign(uri, body, a1);
 
+  // 使用 edith.xiaohongshu.com（creator 域名该接口返回 404）
   const resp = await axios.post(
-    `${XHS_CREATOR_HOST}${uri}`,
-    JSON.stringify(body),   // 与 Python 一致：手动序列化后以 string 形式发送
+    `${XHS_HOST}${uri}`,
+    JSON.stringify(body),
     {
       headers: {
         ...buildHeaders(cookie, sign),
         'Content-Type': 'application/json',
-        Referer: 'https://creator.xiaohongshu.com/',
-        Origin: 'https://creator.xiaohongshu.com',
+        Referer: XHS_WEB + '/',
+        Origin: XHS_WEB,
       },
     }
   );
 
-  // 接口成功判断：Python 检查 resp.data.get("success")
+  // 成功响应：{ success: true, data: { id: '...', score: ... }, share_link: '...' }
   const data = resp.data;
   if (!data?.success) {
     const code = data?.code;
     const msg = data?.msg || JSON.stringify(data);
     if (code === -100) throw new Error('签名错误，请检查 Cookie 是否有效');
+    if (code === -9999) throw new Error(`小红书暂时无法发布：${msg}`);
     throw new Error(`发布失败 (code=${code}): ${msg}`);
   }
 
-  const noteId = data.data?.note_id || data.data?.id;
-  return {
-    note_id: noteId,
-    note_url: noteId ? `${XHS_WEB}/explore/${noteId}` : null,
-  };
+  const noteId = data.data?.id || data.data?.note_id;
+  const noteUrl = data.share_link || (noteId ? `${XHS_WEB}/discovery/item/${noteId}` : null);
+  return { note_id: noteId, note_url: noteUrl };
 }
 
 module.exports = { publishNote };
