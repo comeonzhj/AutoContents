@@ -287,7 +287,7 @@ async function uploadFileToCos(fileId, token, filePath, uploadAddr) {
  * 对应 Python: create_image_note(title, desc, files)
  * 接口：POST https://creator.xiaohongshu.com/web_api/sns/v2/note
  */
-async function publishNote({ title, desc, imagePaths, isPrivate = false }) {
+async function publishNote({ title, desc, imagePaths, isPrivate = true }) {
   const enabled = getConfig('xhs_enabled');
   if (enabled !== '1') throw new Error('小红书发布功能未开启，请在配置中启用');
 
