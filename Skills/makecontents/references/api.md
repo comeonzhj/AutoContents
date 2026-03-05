@@ -154,6 +154,43 @@ Body: { "message": "通知内容文本" }
 ```
 使用场景：Agent 完成任务后通知人类。
 
+### 发布笔记到小红书
+```
+POST /content/publish-xhs
+```
+请求体：
+```json
+{
+  "title": "笔记标题（≤20字，超长自动截断）",
+  "desc": "笔记正文（支持 #话题[话题]# 格式插入话题标签）",
+  "cover_url": "/uploads/rendered/xxx_cover.png",
+  "detail_urls": [
+    "/uploads/rendered/xxx_detail_0.png",
+    "/uploads/rendered/xxx_detail_1.png"
+  ]
+}
+```
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "note_id": "67a1b2c3d4e5f6...",
+    "note_url": "https://www.xiaohongshu.com/explore/67a1b2c3d4e5f6..."
+  }
+}
+```
+**前置条件**：
+- 系统配置页「小红书发布」Tab 中填写了有效的 Cookie（含 `a1` 和 `web_session` 字段）
+- 「发布开关」已开启（`xhs_enabled = 1`）
+- 图片文件必须是已通过 `/content/render` 或 `/content/agent-render` 渲染生成的本地文件
+
+**错误情况**：
+- `小红书发布功能未开启` — 需在配置页开启开关
+- `未配置小红书 Cookie` — 需在配置页填写 Cookie
+- `Cookie 不完整，缺少 a1 或 web_session 字段` — Cookie 无效，需重新获取
+- `发布失败: ...` — 小红书接口返回错误，可能 Cookie 已过期
+
 ### 获取已保存内容列表
 ```
 GET /content/saved
@@ -183,6 +220,22 @@ GET /content/saved
 5. POST /content/save-to-bitable        # 存入飞书多维表供审核（传 saved_content_id）
 6. POST /content/notify-bot             # 通知人类审核
    message 示例："✅ 已完成内容创作：《{title}》\n封面：{cover_url}\n请在飞书多维表查看审核"
+```
+
+### 发布到小红书流程（需人类开启开关）
+
+> ⚠️ 此流程只有在系统配置中「小红书发布开关」开启时才可执行。Agent 不得绕过此开关。
+
+```
+1. （前提）确认 xhs_enabled 已开启，否则跳过此流程
+2. 完成内容创作流程，获得 cover_url 和 detail_urls
+3. POST /content/publish-xhs            # 发布到小红书
+   - title: 笔记标题（来自 agent-render 的 title 字段，≤20字）
+   - desc:  笔记正文（来自 agent-render 的 content 字段）
+   - cover_url / detail_urls: 渲染结果路径
+4. 检查响应中的 note_url，确认发布成功
+5. POST /content/notify-bot             # 通知人类（附上笔记链接）
+   message 示例："✅ 已发布到小红书：《{title}》\n🔗 {note_url}"
 ```
 
 ### 学习选择规律流程
