@@ -147,6 +147,13 @@ Docker Compose 自动创建两个 named volume：
 
 ## Agent 使用
 
+### 一键安装
+
+把下面的消息发给你的 Agent：
+
+> 部署这个项目，把其中的 Skills 安装。安装好以后告诉我怎么帮你配置需要的信息。
+> 项目地址：https://github.com/comeonzhj/AutoContents
+
 项目内置 Agent Skills（位于 `Skills/makecontents/`），可让 AI Agent 自主完成完整工作流：
 
 1. **资讯推送流程**：拉取 → 筛选 → 生成推送内容 → 微信+飞书分发
